@@ -1,23 +1,32 @@
 package main
 
 import (
-	"flag"
+	"bufio"
 	"log"
 	"net"
 )
 
+func handleConnection(c net.Conn) {
+	defer c.Close()
+
+	log.Printf("Connection established from %v.\n", c.RemoteAddr())
+}
+
 func main() {
-	flag.Parse()
-	port := ":" + flag.Arg(0)
-
-	if port == ":" {
-		port := ":9001"
-	}
-
 	log.Println("Telnet Server!!")
 
-	l, err := net.Listen("tcp", port)
+	l, err := net.Listen("tcp", ":9001")
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		go handleConnection(conn)
 	}
 }
