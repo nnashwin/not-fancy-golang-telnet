@@ -10,9 +10,10 @@ import (
 
 type Client struct {
 	conn         net.Conn
-	userId       string
+	userId       []byte
 	ch           chan string
 	blockedUsers []string
+	currentRm    string
 }
 
 func (c Client) ReadLines(ch chan<- string) {
@@ -38,8 +39,15 @@ func (c Client) WriteLines(ch <-chan string) {
 	}
 }
 
+func getUserName(c net.Conn, bufc *bufio.Reader) []byte {
+	io.WriteString(c, "Welcome to the Not-so-fancy chat")
+	io.WriteString(c, "Please input your name")
+	nick, _ := bufc.ReadString()
+	fmt.Println(nick)
+	return []byte(nick)
+}
+
 func main() {
-	clientCount := 0
 	log.Println("Telnet Server!!")
 
 	l, err := net.Listen("tcp", ":9001")
@@ -60,19 +68,19 @@ func main() {
 			continue
 		}
 
-		nick := "Client-" + string(clientCount)
-		clientCount++
-		go handleConnection(conn, msgClientChan, addClientChan, rmClientChan, nick)
+		go handleConnection(conn, msgClientChan, addClientChan, rmClientChan)
 	}
 }
 
-func handleConnection(c net.Conn, msgCChan chan<- string, addCChan chan<- Client, rmCChan chan<- Client, nick string) {
+func handleConnection(c net.Conn, msgCChan chan<- string, addCChan chan<- Client, rmCChan chan<- Client) {
+	bufc := bufio.NewReader(c)
 	defer c.Close()
 
 	client := Client{
-		conn:   c,
-		userId: nick,
-		ch:     make(chan string),
+		conn:      c,
+		userId:    getUserName(c, bufc),
+		ch:        make(chan string),
+		currentRm: "home",
 	}
 
 	addCChan <- client
@@ -89,7 +97,6 @@ func handleMsgs(msgCChan <-chan string, addCChan <-chan Client, rmCChan <-chan C
 	for {
 		select {
 		case msg := <-msgCChan:
-			log.Println(msg)
 			for _, ch := range clients {
 				go func(mesch chan<- string) {
 					mesch <- msg
@@ -97,11 +104,11 @@ func handleMsgs(msgCChan <-chan string, addCChan <-chan Client, rmCChan <-chan C
 			}
 
 		case client := <-addCChan:
-			log.Printf("New client has joined the channel: %v\n", client.conn)
+			fmt.Printf("New client has joined the channel: %v\n", client.conn)
 			clients[client.conn] = client.ch
 
 		case client := <-rmCChan:
-			log.Printf("Client disconnects: %v\n", client.conn)
+			fmt.Printf("Client disconnects: %v\n", client.conn)
 			delete(clients, client.conn)
 		}
 	}
