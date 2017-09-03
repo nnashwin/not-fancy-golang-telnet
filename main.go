@@ -10,7 +10,7 @@ import (
 
 type Client struct {
 	conn         net.Conn
-	userId       []byte
+	userId       string
 	ch           chan string
 	blockedUsers []string
 	currentRm    string
@@ -25,7 +25,7 @@ func (c Client) ReadLines(ch chan<- string) {
 			log.Println(err)
 			break
 		}
-		ch <- fmt.Sprintf("%s: %s", c.userId, line)
+		ch <- fmt.Sprintf("%+v %+v", c.userId, line)
 	}
 }
 
@@ -39,16 +39,19 @@ func (c Client) WriteLines(ch <-chan string) {
 	}
 }
 
-func getUserName(c net.Conn, bufc *bufio.Reader) []byte {
-	io.WriteString(c, "Welcome to the Not-so-fancy chat")
-	io.WriteString(c, "Please input your name")
-	nick, _ := bufc.ReadString()
-	fmt.Println(nick)
-	return []byte(nick)
+func getUserName(c net.Conn, bufc *bufio.Reader) string {
+	io.WriteString(c, "Welcome to the Not-so-fancy chat\n")
+	io.WriteString(c, "Please input your name\n")
+	nick, _ := bufc.ReadString('\n')
+
+	// return a slick of the string which does not include the \n byte at the end of the string
+	nickSlice := nick[:len(nick)-2]
+
+	return nickSlice
 }
 
 func main() {
-	log.Println("Telnet Server!!")
+	log.Println("The telnet server has started!")
 
 	l, err := net.Listen("tcp", ":9001")
 	if err != nil {
@@ -84,8 +87,8 @@ func handleConnection(c net.Conn, msgCChan chan<- string, addCChan chan<- Client
 	}
 
 	addCChan <- client
-	io.WriteString(c, "Howdy Ho, Welcome to the Telnet Chat")
-	msgCChan <- fmt.Sprintf("A new user has joined the CHAT!!")
+	// no space after the verb because it seems to add a \n
+	msgCChan <- fmt.Sprintf("Howdy ho %s! Welcome to the Telnet Chat!\n", client.userId)
 
 	go client.ReadLines(msgCChan)
 	client.WriteLines(client.ch)
@@ -104,7 +107,7 @@ func handleMsgs(msgCChan <-chan string, addCChan <-chan Client, rmCChan <-chan C
 			}
 
 		case client := <-addCChan:
-			fmt.Printf("New client has joined the channel: %v\n", client.conn)
+			fmt.Printf("New client has joined the channel: %v\n", client.userId)
 			clients[client.conn] = client.ch
 
 		case client := <-rmCChan:
