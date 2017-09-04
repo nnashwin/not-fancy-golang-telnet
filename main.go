@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"time"
 )
 
 type Client struct {
@@ -25,7 +26,9 @@ func (c Client) ReadLines(ch chan<- string) {
 			log.Println(err)
 			break
 		}
-		ch <- fmt.Sprintf("%+v %+v", c.userId, line)
+
+		t := time.Now().Format(time.RFC822)
+		ch <- fmt.Sprintf("%+v %+v: %+v", t, c.userId, line)
 	}
 }
 
