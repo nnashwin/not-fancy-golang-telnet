@@ -61,8 +61,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Sprintf("The telnet server has started at %v!", time.Now().Format(time.RFC822))
-	if _, err := f.Write([]byte(fmt.Sprintf("The telnet server has started at %v!", time.Now().Format(time.RFC822)))); err != nil {
+	startMsg := fmt.Sprintf("The telnet server has started at %v!", time.Now().Format(time.RFC822))
+	if _, err := f.Write([]byte(startMsg)); err != nil {
 		log.Fatal(err)
 	}
 
