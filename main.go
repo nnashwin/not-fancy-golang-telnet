@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"time"
 )
 
@@ -28,6 +29,7 @@ func (c Client) ReadLines(ch chan<- string) {
 		}
 
 		t := time.Now().Format(time.RFC822)
+		fmt.Printf("%+v %+v: %+v", t, c.userId, line)
 		ch <- fmt.Sprintf("%+v %+v: %+v", t, c.userId, line)
 	}
 }
@@ -54,7 +56,15 @@ func getUserName(c net.Conn, bufc *bufio.Reader) string {
 }
 
 func main() {
-	log.Println("The telnet server has started!")
+	f, err := os.OpenFile("server.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Sprintf("The telnet server has started at %v!", time.Now().Format(time.RFC822))
+	if _, err := f.Write([]byte(fmt.Sprintf("The telnet server has started at %v!", time.Now().Format(time.RFC822)))); err != nil {
+		log.Fatal(err)
+	}
 
 	l, err := net.Listen("tcp", ":9001")
 	if err != nil {
@@ -76,6 +86,7 @@ func main() {
 
 		go handleConnection(conn, msgClientChan, addClientChan, rmClientChan)
 	}
+	defer f.Close()
 }
 
 func handleConnection(c net.Conn, msgCChan chan<- string, addCChan chan<- Client, rmCChan chan<- Client) {
@@ -110,11 +121,11 @@ func handleMsgs(msgCChan <-chan string, addCChan <-chan Client, rmCChan <-chan C
 			}
 
 		case client := <-addCChan:
-			fmt.Printf("New client has joined the channel: %v\n", client.userId)
+			fmt.Printf("%v New client has joined the channel: %v\n", time.Now().Format(time.RFC822), client.userId)
 			clients[client.conn] = client.ch
 
 		case client := <-rmCChan:
-			fmt.Printf("Client disconnects: %v\n", client.conn)
+			fmt.Printf("%v Client disconnects: %v\n", time.Now().Format(time.RFC822), client.conn)
 			delete(clients, client.conn)
 		}
 	}
