@@ -2,19 +2,18 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"os"
 )
 
 type Config struct {
-	Port            string `json:"port"`
-	Ip              string `json:"ip"`
-	LogFileLocation string `json: "logFile"`
+	Port    string `json:"port"`
+	Ip      string `json:"ip"`
+	LogFile string `json: "logFile"`
 }
 
 func loadConfigFile(fileLoc string) (Config, error) {
-	file, err := os.Open(fileLoc)
 	var config Config
+	file, err := os.Open(fileLoc)
 	if err != nil {
 		return config, err
 	}
@@ -24,8 +23,6 @@ func loadConfigFile(fileLoc string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	log.Printf("%+v", config.Port)
-	log.Printf("%+v", config.Ip)
 
 	return config, nil
 }
