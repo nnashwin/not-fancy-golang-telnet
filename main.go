@@ -16,24 +16,26 @@ const configJson = "config.json"
 func main() {
 	config, err := loadConfigFile(configJson)
 	if err != nil {
+		fmt.Printf("The config file at %v was not found\n", configJson)
 		log.Fatal(err)
 	}
 
-	f, err := os.OpenFile(config.LogFileLocation, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(config.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
+		fmt.Printf("The log file %v was not found\n", config.LogFile)
 		log.Fatal(err)
 	}
 
 	writeToLog := openLogFile(f)
-
-	startMsg := fmt.Sprintf("The telnet server has started at %v!\n", time.Now().Format(time.RFC822))
-	writeToLog(startMsg)
 
 	l, err := net.Listen("tcp", ":"+config.Port)
 	if err != nil {
 		writeToLog(err.Error())
 		log.Fatal(err)
 	}
+
+	startMsg := fmt.Sprintf("The telnet server has started at %v!\n", time.Now().Format(time.RFC822))
+	writeToLog(startMsg)
 
 	addClientChan := make(chan Client)
 	msgClientChan := make(chan string)
