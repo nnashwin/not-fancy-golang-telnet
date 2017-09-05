@@ -22,7 +22,7 @@ func main() {
 
 	f, err := os.OpenFile(config.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Printf("The log file %v was not found\n", config.LogFile)
+		fmt.Printf("The log file at %v was not found and is unable to be created\n", config.LogFile)
 		log.Fatal(err)
 	}
 
