@@ -10,42 +10,16 @@ import (
 	"time"
 )
 
-type Client struct {
-	conn         net.Conn
-	userId       string
-	ch           chan string
-	blockedUsers []string
-	currentRm    string
-}
-
-func (c Client) ReadLines(ch chan<- string) {
-	buffc := bufio.NewReader(c.conn)
-
-	for {
-		line, err := buffc.ReadString('\n')
-		if err != nil {
-			log.Println(err)
-			break
-		}
-
-		t := time.Now().Format(time.RFC822)
-		fmt.Printf("%+v %+v: %+v", t, c.userId, line)
-		ch <- fmt.Sprintf("%+v %+v: %+v", t, c.userId, line)
-	}
-}
-
-func (c Client) WriteLines(ch <-chan string) {
-	for msg := range ch {
-		_, err := io.WriteString(c.conn, msg)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-	}
-}
+// JSON from which to load the config
+const configJson = "config.json"
 
 func main() {
-	f, err := os.OpenFile("server.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	config, err := loadConfigFile(configJson)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	f, err := os.OpenFile(config.LogFileLocation, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -55,8 +29,9 @@ func main() {
 	startMsg := fmt.Sprintf("The telnet server has started at %v!\n", time.Now().Format(time.RFC822))
 	writeToLog(startMsg)
 
-	l, err := net.Listen("tcp", ":9001")
+	l, err := net.Listen("tcp", ":"+config.Port)
 	if err != nil {
+		writeToLog(err.Error())
 		log.Fatal(err)
 	}
 
@@ -70,6 +45,8 @@ func main() {
 		conn, err := l.Accept()
 		if err != nil {
 			log.Println(err)
+			writeToLog(err.Error())
+			// continues the server so one error with a connection will not crash the entire chat server
 			continue
 		}
 
@@ -89,13 +66,13 @@ func getUserName(c net.Conn, bufc *bufio.Reader) string {
 	return nickSlice
 }
 
+// partially applied os.File parameter.  creates another function which can be called with the string to write
 func openLogFile(file *os.File) func(string) {
 	return func(str string) {
 		if _, err := file.Write([]byte(str)); err != nil {
 			log.Fatal(err)
 		}
 	}
-
 }
 
 func handleConnection(c net.Conn, msgCChan chan<- string, addCChan chan<- Client, rmCChan chan<- Client) {
@@ -103,26 +80,27 @@ func handleConnection(c net.Conn, msgCChan chan<- string, addCChan chan<- Client
 	defer c.Close()
 
 	client := Client{
-		conn:      c,
-		userId:    getUserName(c, bufc),
-		ch:        make(chan string),
+		conn:   c,
+		userId: getUserName(c, bufc),
+		ch:     make(chan string),
+		// Puts everyone in the same room for now.  Will be able to switch in the future
 		currentRm: "home",
 	}
 
 	addCChan <- client
-	// no space after the verb because it seems to add a \n
 	msgCChan <- fmt.Sprintf("Howdy ho %s! Welcome to the Telnet Chat!\n", client.userId)
 
 	go client.ReadLines(msgCChan)
 	client.WriteLines(client.ch)
 }
 
-func handleMsgs(msgCChan <-chan string, addCChan <-chan Client, rmCChan <-chan Client, logFunc func(string)) {
+func handleMsgs(msgCChan <-chan string, addCChan <-chan Client, rmCChan <-chan Client, writeToLog func(string)) {
 	clients := make(map[net.Conn]chan<- string)
 
 	for {
 		select {
 		case msg := <-msgCChan:
+			writeToLog(msg)
 			for _, ch := range clients {
 				go func(mesch chan<- string) {
 					mesch <- msg
@@ -131,11 +109,12 @@ func handleMsgs(msgCChan <-chan string, addCChan <-chan Client, rmCChan <-chan C
 
 		case client := <-addCChan:
 			joinMsg := fmt.Sprintf("%v New client has joined the channel: %v\n", time.Now().Format(time.RFC822), client.userId)
-			logFunc(joinMsg)
+			writeToLog(joinMsg)
 			clients[client.conn] = client.ch
 
 		case client := <-rmCChan:
-			fmt.Printf("%v Client disconnects: %v\n", time.Now().Format(time.RFC822), client.conn)
+			leaveMsg := fmt.Sprintf("%v Client disconnects: %v\n", time.Now().Format(time.RFC822), client.userId)
+			writeToLog(leaveMsg)
 			delete(clients, client.conn)
 		}
 	}
