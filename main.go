@@ -13,6 +13,11 @@ import (
 // JSON from which to load the config
 const configJson = "config.json"
 
+type Message struct {
+	sender string
+	text   string
+}
+
 func main() {
 	config, err := loadConfigFile(configJson)
 	if err != nil {
@@ -38,7 +43,7 @@ func main() {
 	writeToLog(startMsg)
 
 	addClientChan := make(chan Client)
-	msgClientChan := make(chan string)
+	msgClientChan := make(chan Message)
 	rmClientChan := make(chan Client)
 
 	go handleMsgs(msgClientChan, addClientChan, rmClientChan, writeToLog)
@@ -77,45 +82,48 @@ func openLogFile(file *os.File) func(string) {
 	}
 }
 
-func handleConnection(c net.Conn, msgCChan chan<- string, addCChan chan<- Client, rmCChan chan<- Client) {
+func handleConnection(c net.Conn, msgCChan chan<- Message, addCChan chan<- Client, rmCChan chan<- Client) {
 	bufc := bufio.NewReader(c)
 	defer c.Close()
 
 	client := Client{
-		conn:   c,
-		userId: getUserName(c, bufc),
-		ch:     make(chan string),
+		conn:         c,
+		userId:       getUserName(c, bufc),
+		ch:           make(chan string),
+		blockedUsers: make(map[string]int),
 		// Puts everyone in the same room for now.  Will be able to switch in the future
 		currentRm: "home",
 	}
 
 	addCChan <- client
-	msgCChan <- fmt.Sprintf("Howdy ho %s! Welcome to the Telnet Chat!\n", client.userId)
-
+	msgCChan <- Message{sender: "host", text: fmt.Sprintf("Howdy ho %s! Welcome to the Telnet Chat!\n", client.userId)}
 	go client.ReadLines(msgCChan)
 	client.WriteLines(client.ch)
 }
 
-func handleMsgs(msgCChan <-chan string, addCChan <-chan Client, rmCChan <-chan Client, writeToLog func(string)) {
-	clients := make(map[net.Conn]chan<- string)
-
+func handleMsgs(msgCChan <-chan Message, addCChan <-chan Client, rmCChan <-chan Client, writeToLog func(string)) {
+	clients := make(map[net.Conn]Client)
 	for {
 		select {
 		case msg := <-msgCChan:
-			writeToLog(msg)
-			for _, ch := range clients {
-				go func(mesch chan<- string) {
-					mesch <- msg
-				}(ch)
+			writeToLog(msg.text)
+			for _, client := range clients {
+				if client.blockedUsers[msg.sender] == 0 {
+					go func(mesch chan<- string) {
+						mesch <- msg.text
+					}(client.ch)
+				}
 			}
 
 		case client := <-addCChan:
 			joinMsg := fmt.Sprintf("%v New client has joined the channel: %v\n", time.Now().Format(time.RFC822), client.userId)
+			// msgCChan <- Message{sender: "host", text: joinMsg}
 			writeToLog(joinMsg)
-			clients[client.conn] = client.ch
+			clients[client.conn] = client
 
 		case client := <-rmCChan:
 			leaveMsg := fmt.Sprintf("%v Client disconnects: %v\n", time.Now().Format(time.RFC822), client.userId)
+			// msgCChan <- Message{sender: "host", text: leaveMsg}
 			writeToLog(leaveMsg)
 			delete(clients, client.conn)
 		}
