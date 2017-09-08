@@ -40,7 +40,6 @@ func main() {
 	}
 
 	startMsg := fmt.Sprintf("Server has started on %v:%v at %v!\n", config.Ip, config.Port, time.Now().Format(time.RFC822))
-	fmt.Println(startMsg)
 	writeToLog(startMsg)
 
 	addClientChan := make(chan Client)
@@ -77,6 +76,7 @@ func getUserName(c net.Conn, bufc *bufio.Reader) string {
 // partially applied os.File parameter.  creates another function which can be called with the string to write
 func openLogFile(file *os.File) func(string) {
 	return func(str string) {
+		fmt.Println(str)
 		if _, err := file.Write([]byte(str)); err != nil {
 			log.Fatal(err)
 		}
