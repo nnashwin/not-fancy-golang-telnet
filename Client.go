@@ -13,13 +13,12 @@ type Client struct {
 	conn         net.Conn
 	userId       string
 	ch           chan string
-	blockedUsers []string
+	blockedUsers map[string]int
 	currentRm    string
 }
 
-func (c Client) ReadLines(ch chan<- string) {
+func (c Client) ReadLines(ch chan<- Message) {
 	buffc := bufio.NewReader(c.conn)
-
 	for {
 		line, err := buffc.ReadString('\n')
 		if err != nil {
@@ -30,7 +29,8 @@ func (c Client) ReadLines(ch chan<- string) {
 		// adds readable timestamp to each message
 		t := time.Now().Format(time.RFC822)
 		fmt.Printf("%+v %+v: %+v", t, c.userId, line)
-		ch <- fmt.Sprintf("%+v %+v: %+v", t, c.userId, line)
+		message := Message{sender: c.userId, text: fmt.Sprintf("%+v %+v: %+v", t, c.userId, line)}
+		ch <- message
 	}
 }
 
