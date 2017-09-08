@@ -17,7 +17,7 @@ type Client struct {
 	currentRm    string
 }
 
-func (c Client) ReadLines(ch chan<- Message) {
+func (c *Client) ReadLines(ch chan<- Message, commCCh chan<- Command) {
 	buffc := bufio.NewReader(c.conn)
 	for {
 		line, err := buffc.ReadString('\n')
@@ -26,11 +26,18 @@ func (c Client) ReadLines(ch chan<- Message) {
 			break
 		}
 
-		// adds readable timestamp to each message
-		t := time.Now().Format(time.RFC822)
-		fmt.Printf("%+v %+v: %+v", t, c.userId, line)
-		message := Message{sender: c.userId, text: fmt.Sprintf("%+v %+v: %+v", t, c.userId, line)}
-		ch <- message
+		if line[:1] == "/" {
+			fmt.Println("Command and not message")
+			comm := Command{sender: c, input: line[1:2]}
+			commCCh <- comm
+		} else {
+			// adds readable timestamp to each message
+			t := time.Now().Format(time.RFC822)
+			fmt.Printf("%+v %+v: %+v", t, c.userId, line)
+			message := Message{sender: c.userId, text: fmt.Sprintf("%+v %+v: %+v", t, c.userId, line)}
+			ch <- message
+		}
+
 	}
 }
 
