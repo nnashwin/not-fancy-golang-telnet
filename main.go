@@ -44,9 +44,11 @@ func main() {
 
 	addClientChan := make(chan Client)
 	msgClientChan := make(chan Message)
+	commClientChan := make(chan Command)
 	rmClientChan := make(chan Client)
 
 	go handleMsgs(msgClientChan, addClientChan, rmClientChan, writeToLog)
+	go handleCommands(commClientChan, writeToLog)
 
 	for {
 		conn, err := l.Accept()
@@ -57,7 +59,7 @@ func main() {
 			continue
 		}
 
-		go handleConnection(conn, msgClientChan, addClientChan, rmClientChan)
+		go handleConnection(conn, msgClientChan, addClientChan, rmClientChan, commClientChan)
 	}
 	defer f.Close()
 }
@@ -83,7 +85,7 @@ func openLogFile(file *os.File) func(string) {
 	}
 }
 
-func handleConnection(c net.Conn, msgCChan chan<- Message, addCChan chan<- Client, rmCChan chan<- Client) {
+func handleConnection(c net.Conn, msgCChan chan<- Message, addCChan chan<- Client, rmCChan chan<- Client, commCChan chan<- Command) {
 	bufc := bufio.NewReader(c)
 	defer c.Close()
 
@@ -104,16 +106,16 @@ func handleConnection(c net.Conn, msgCChan chan<- Message, addCChan chan<- Clien
 	}()
 
 	msgCChan <- Message{sender: "host", text: fmt.Sprintf("Howdy ho %s! Welcome to the Telnet Chat!\n", client.userId)}
-	go client.ReadLines(msgCChan)
+	go client.ReadLines(msgCChan, commCChan)
 	client.WriteLines(client.ch)
 }
 
-func handleMsgs(msgCChan <-chan Message, addCChan <-chan Client, rmCChan <-chan Client, writeToLog func(string)) {
+func handleMsgs(msgCChan <-chan Message, addCChan <-chan Client, rmCChan <-chan Client, logFunc func(string)) {
 	clients := make(map[net.Conn]Client)
 	for {
 		select {
 		case msg := <-msgCChan:
-			writeToLog(msg.text)
+			logFunc(msg.text)
 			for _, client := range clients {
 				if client.blockedUsers[msg.sender] == 0 {
 					go func(mesch chan<- string) {
@@ -125,14 +127,23 @@ func handleMsgs(msgCChan <-chan Message, addCChan <-chan Client, rmCChan <-chan 
 		case client := <-addCChan:
 			joinMsg := fmt.Sprintf("%v New client has joined the channel: %v\n", time.Now().Format(time.RFC822), client.userId)
 			// msgCChan <- Message{sender: "host", text: joinMsg}
-			writeToLog(joinMsg)
+			logFunc(joinMsg)
 			clients[client.conn] = client
 
 		case client := <-rmCChan:
 			leaveMsg := fmt.Sprintf("%v Client disconnects: %v\n", time.Now().Format(time.RFC822), client.userId)
 			// msgCChan <- Message{sender: "host", text: leaveMsg}
-			writeToLog(leaveMsg)
+			logFunc(leaveMsg)
 			delete(clients, client.conn)
+		}
+	}
+}
+
+func handleCommands(commandCCh <-chan Command, logFunc func(string)) {
+	for {
+		select {
+		case command := <-commandCCh:
+			fmt.Printf("%+v", command)
 		}
 	}
 }
