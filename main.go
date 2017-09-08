@@ -33,13 +33,14 @@ func main() {
 
 	writeToLog := openLogFile(f)
 
-	l, err := net.Listen("tcp", ":"+config.Port)
+	l, err := net.Listen("tcp", config.Ip+":"+config.Port)
 	if err != nil {
 		writeToLog(err.Error())
 		log.Fatal(err)
 	}
 
-	startMsg := fmt.Sprintf("The telnet server has started at %v!\n", time.Now().Format(time.RFC822))
+	startMsg := fmt.Sprintf("Server has started on %v:%v at %v!\n", config.Ip, config.Port, time.Now().Format(time.RFC822))
+	fmt.Println(startMsg)
 	writeToLog(startMsg)
 
 	addClientChan := make(chan Client)
@@ -96,6 +97,12 @@ func handleConnection(c net.Conn, msgCChan chan<- Message, addCChan chan<- Clien
 	}
 
 	addCChan <- client
+
+	defer func() {
+		fmt.Printf("Closed connection from %v", c.RemoteAddr())
+		rmCChan <- client
+	}()
+
 	msgCChan <- Message{sender: "host", text: fmt.Sprintf("Howdy ho %s! Welcome to the Telnet Chat!\n", client.userId)}
 	go client.ReadLines(msgCChan)
 	client.WriteLines(client.ch)
