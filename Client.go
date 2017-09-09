@@ -26,6 +26,7 @@ func (c *Client) ReadLines(ch chan<- Message, commCCh chan<- Command) {
 			break
 		}
 
+		// sends to command channel if the input is prefaced with a backslash
 		if line[:1] == "/" {
 			fmt.Println("Command and not message\n")
 			comm := Command{sender: c, input: line[1:]}
