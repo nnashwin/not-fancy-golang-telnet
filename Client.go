@@ -27,8 +27,8 @@ func (c *Client) ReadLines(ch chan<- Message, commCCh chan<- Command) {
 		}
 
 		if line[:1] == "/" {
-			fmt.Println("Command and not message")
-			comm := Command{sender: c, input: line[1:2]}
+			fmt.Println("Command and not message\n")
+			comm := Command{sender: c, input: line[1:]}
 			commCCh <- comm
 		} else {
 			// adds readable timestamp to each message
