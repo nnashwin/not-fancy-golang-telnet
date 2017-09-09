@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -143,7 +144,10 @@ func handleCommands(commandCCh <-chan Command, logFunc func(string)) {
 	for {
 		select {
 		case command := <-commandCCh:
-			fmt.Printf("%+v", command)
+			wordArr := strings.Fields(command.input)
+			fmt.Printf("%+v\n", wordArr)
+			fmt.Printf("%v\n", len(wordArr))
+			fmt.Printf("%+v\n", wordArr)
 		}
 	}
 }
