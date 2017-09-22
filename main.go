@@ -146,8 +146,6 @@ func handleCommands(commandCCh <-chan Command, logFunc func(string)) {
 		case command := <-commandCCh:
 			wordArr := strings.Fields(command.input)
 			fmt.Printf("%+v\n", wordArr)
-			fmt.Printf("%v\n", len(wordArr))
-			fmt.Printf("%+v\n", wordArr)
 		}
 	}
 }
